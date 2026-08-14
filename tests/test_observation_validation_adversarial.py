@@ -193,6 +193,30 @@ def test_negation_check_accepts_non_empty_string():
     validate_observation(_base_observation(negation_check="broke the guard, test went red"), FAKE_PATH)
 
 
+@pytest.mark.parametrize("field", ["subject_refs", "supporting_refs", "contradicting_refs"])
+def test_ref_fields_absent_or_empty_list_is_fine(field):
+    validate_observation(_base_observation(**{field: []}), FAKE_PATH)  # must not raise
+    validate_observation(_base_observation(**{field: ["OBS-002"]}), FAKE_PATH)  # must not raise
+
+
+@pytest.mark.parametrize("field", ["subject_refs", "supporting_refs", "contradicting_refs"])
+def test_ref_fields_reject_non_list(field):
+    with pytest.raises(CorpusError, match=field):
+        validate_observation(_base_observation(**{field: "OBS-002"}), FAKE_PATH)
+
+
+@pytest.mark.parametrize("field", ["subject_refs", "supporting_refs", "contradicting_refs"])
+def test_ref_fields_reject_non_string_entries(field):
+    with pytest.raises(CorpusError, match=field):
+        validate_observation(_base_observation(**{field: [123]}), FAKE_PATH)
+
+
+@pytest.mark.parametrize("field", ["subject_refs", "supporting_refs", "contradicting_refs"])
+def test_ref_fields_reject_blank_entries(field):
+    with pytest.raises(CorpusError, match="blank"):
+        validate_observation(_base_observation(**{field: ["   "]}), FAKE_PATH)
+
+
 def test_negation_check_rejects_empty_string():
     with pytest.raises(CorpusError, match="negation_check"):
         validate_observation(_base_observation(negation_check="   "), FAKE_PATH)

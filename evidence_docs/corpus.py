@@ -10,6 +10,8 @@ verified, and why each check exists.
 
 from __future__ import annotations
 
+import re
+from contextlib import contextmanager
 from pathlib import Path
 
 import yaml
@@ -38,22 +40,49 @@ def load_yaml(path: Path) -> dict:
         return yaml.safe_load(f)
 
 
+@contextmanager
+def yaml_shape_guard(path: Path):
+    """Turn a malformed-YAML-shape crash (missing key, wrong type -- e.g. an
+    empty file parsing to None, or a mapping expected where a list or scalar
+    was written) into a CorpusError that names the offending file, instead of
+    letting a raw KeyError/TypeError/AttributeError/IndexError traceback
+    reach the CLI. The public validate/generate commands promise CorpusError
+    as their only failure mode; a stray traceback would break that contract
+    and give the caller nothing to act on beyond "something crashed".
+    """
+
+    try:
+        yield
+    except (KeyError, TypeError, AttributeError, IndexError) as e:
+        raise CorpusError(f"{path}: malformed corpus YAML ({type(e).__name__}: {e})") from e
+
+
 class Corpus:
-    def __init__(self, topics: dict, observations: dict, gaps: list):
+    def __init__(self, topics: dict, observations: dict, gaps: list, ref_warnings: list[str] | None = None):
         self.topics = topics
         self.observations = observations
         self.gaps = gaps
+        self.ref_warnings = ref_warnings or []
 
 
 def load_corpus(corpus_dir: Path) -> Corpus:
-    registry = load_yaml(corpus_dir / "id-registry.yaml")
-    registered_topics = registry["topics"]
-    registered_observations = registry["observations"]
+    registry_path = corpus_dir / "id-registry.yaml"
+    with yaml_shape_guard(registry_path):
+        registry = load_yaml(registry_path)
+        registered_topics = registry["topics"]
+        registered_observations = registry["observations"]
 
     topics: dict[str, dict] = {}
     for path in sorted((corpus_dir / "topics").glob("*.yaml")):
-        topic = load_yaml(path)
-        tid = topic["topic_id"]
+        with yaml_shape_guard(path):
+            topic = load_yaml(path)
+            tid = topic["topic_id"]
+            related = topic.get("related_topics", [])
+            if not isinstance(related, list):
+                # A bare `list(...)` conversion would silently accept a
+                # string here (iterating its characters) instead of
+                # surfacing the shape mistake.
+                raise TypeError(f"related_topics must be a list, got {type(related).__name__}")
         if tid not in registered_topics:
             raise CorpusError(f"{path}: topic_id {tid} is not in id-registry.yaml")
         if tid in topics:
@@ -62,18 +91,24 @@ def load_corpus(corpus_dir: Path) -> Corpus:
 
     observations: dict[str, dict] = {}
     for path in sorted((corpus_dir / "observations").glob("*.yaml")):
-        doc = load_yaml(path)
-        for obs in doc["observations"]:
-            oid = obs["observation_id"]
+        with yaml_shape_guard(path):
+            doc = load_yaml(path)
+            obs_list = doc["observations"]
+        for obs in obs_list:
+            with yaml_shape_guard(path):
+                oid = obs["observation_id"]
+                topic_id = obs["topic_id"]
             if oid not in registered_observations:
                 raise CorpusError(
                     f"{path}: observation_id {oid} is not in id-registry.yaml "
                     "(mint it there first -- IDs must be stable and pre-registered)"
                 )
-            if registered_observations[oid]["topic_id"] != obs["topic_id"]:
+            with yaml_shape_guard(path):
+                registered_topic_id = registered_observations[oid]["topic_id"]
+            if registered_topic_id != topic_id:
                 raise CorpusError(f"{path}: {oid} topic_id mismatch vs id-registry.yaml")
-            if obs["topic_id"] not in topics:
-                raise CorpusError(f"{path}: {oid} references unknown topic_id {obs['topic_id']}")
+            if topic_id not in topics:
+                raise CorpusError(f"{path}: {oid} references unknown topic_id {topic_id}")
             if oid in observations:
                 raise CorpusError(f"duplicate observation_id {oid}")
             validate_observation(obs, path)
@@ -98,9 +133,84 @@ def load_corpus(corpus_dir: Path) -> Corpus:
                     "related_topics elsewhere)"
                 )
 
-    gaps = load_yaml(corpus_dir / "gaps.yaml")["gaps"]
+    ref_warnings = check_dangling_refs(topics, observations)
 
-    return Corpus(topics=topics, observations=observations, gaps=gaps)
+    gaps_path = corpus_dir / "gaps.yaml"
+    with yaml_shape_guard(gaps_path):
+        gaps = load_yaml(gaps_path)["gaps"]
+
+    return Corpus(topics=topics, observations=observations, gaps=gaps, ref_warnings=ref_warnings)
+
+
+_INTERNAL_REF_RE = re.compile(r"^(OBS|T)-\d+$")
+# Looser than _INTERNAL_REF_RE: case-insensitive, hyphen optional. Catches
+# typos of the exact shape (wrong case, dropped hyphen) that would otherwise
+# be indistinguishable from a genuinely external reference.
+_AMBIGUOUS_REF_RE = re.compile(r"^(obs|t)-?\d+$", re.IGNORECASE)
+
+
+def normalize_ref_target(ref: str) -> str:
+    """Extract the leading token a supporting_refs/contradicting_refs entry
+    points at, stripping a trailing `#anchor` or free-text explanation
+    (e.g. "OBS-014#some note" or "OBS-014 because of X" both normalize to
+    "OBS-014"). Shared by check_dangling_refs() and build_relations() so
+    both agree on what a ref "means".
+    """
+
+    return ref.split("#", 1)[0].split(" ", 1)[0]
+
+
+def check_dangling_refs(topics: dict[str, dict], observations: dict[str, dict]) -> list[str]:
+    """Cross-check supporting_refs/contradicting_refs against the corpus,
+    the same way related_topics is cross-checked against topics.
+
+    A ref is free text that may point at an internal claim ("OBS-014"), a
+    topic ("T-03"), or something external entirely (a spec/doc path, a PR
+    comment locator) -- only the leading token (see normalize_ref_target)
+    is inspected:
+
+    - A target that exactly matches the OBS-<n>/T-<n> shape is treated as
+      an internal reference and must exist in this corpus; a typo'd or
+      stale ID (e.g. "OBS-999") is rejected, the same guarantee
+      related_topics already gets.
+    - A target that loosely resembles an ID (case-insensitive "obs-"/"t-"
+      prefix) without matching that shape exactly -- e.g. "Obs-014" or
+      "OBS014" -- is almost certainly a typo'd internal reference, but not
+      confidently enough to hard-fail the whole corpus over. It is
+      returned as a warning instead of an error.
+    - Anything else (a doc path, a review-memory locator, ...) is an
+      external reference and is not checked here at all -- the same
+      convention build_relations() uses to decide whether to emit an
+      observation_contradicts edge.
+    """
+
+    warnings: list[str] = []
+    for oid in sorted(observations):
+        obs = observations[oid]
+        for field in ("supporting_refs", "contradicting_refs"):
+            for ref in obs.get(field) or []:
+                target = normalize_ref_target(ref)
+                if _INTERNAL_REF_RE.match(target):
+                    if target.startswith("OBS-") and target not in observations:
+                        raise CorpusError(
+                            f"{oid}.{field} references unknown observation_id {target!r} "
+                            f"(from ref {ref!r}) -- typo? or an observation that was "
+                            "removed without updating its referrers"
+                        )
+                    if target.startswith("T-") and target not in topics:
+                        raise CorpusError(
+                            f"{oid}.{field} references unknown topic_id {target!r} "
+                            f"(from ref {ref!r}) -- typo? or a topic that was removed "
+                            "without updating its referrers"
+                        )
+                elif _AMBIGUOUS_REF_RE.match(target):
+                    warnings.append(
+                        f"{oid}.{field} ref {ref!r} looks like it might be an internal "
+                        f"reference (target {target!r}) but doesn't match the OBS-<n>/T-<n> "
+                        "shape exactly; treated as external and not cross-checked here -- "
+                        "verify this isn't a typo'd internal reference"
+                    )
+    return warnings
 
 
 def validate_observation(obs: dict, path: Path) -> None:
@@ -122,6 +232,20 @@ def validate_observation(obs: dict, path: Path) -> None:
                 "(a short record of the test-broke-red check performed for "
                 "execution_verified claims), got {obs['negation_check']!r}"
             )
+    # subject_refs/supporting_refs/contradicting_refs are all free-text lists
+    # (a symbol name, or a pointer to another claim/doc). Existence of
+    # supporting_refs/contradicting_refs targets that look like internal IDs
+    # is cross-checked later by check_dangling_refs(), once the whole corpus
+    # is loaded; here only the shape is checked, since it applies uniformly
+    # to all three fields regardless of what they end up pointing at.
+    for field in ("subject_refs", "supporting_refs", "contradicting_refs"):
+        if field not in obs or obs[field] is None:
+            continue
+        values = obs[field]
+        if not isinstance(values, list) or not all(isinstance(v, str) for v in values):
+            raise CorpusError(f"{path}: {oid} {field} must be a list of strings")
+        if any(not v.strip() for v in values):
+            raise CorpusError(f"{path}: {oid} {field} must not contain blank entries")
     if not obs["provenance"]:
         raise CorpusError(f"{path}: {oid} has no provenance")
     for prov in obs["provenance"]:
@@ -209,6 +333,15 @@ def build_claims(observations: dict[str, dict]) -> list[dict]:
 
 
 def build_relations(topics: dict[str, dict], observations: dict[str, dict]) -> list[dict]:
+    """`contradicting_refs` entries are normalized the same way
+    check_dangling_refs() validates them (see normalize_ref_target): only a
+    ref whose normalized target is an observation_id that actually exists
+    in this corpus becomes an observation_contradicts edge. Refs pointing
+    at external docs, or ambiguous almost-an-ID typos, are left out of the
+    relation graph entirely -- an edge to something that can't be resolved
+    would be worse than no edge.
+    """
+
     relations = []
     for oid in sorted(observations):
         obs = observations[oid]
@@ -221,7 +354,7 @@ def build_relations(topics: dict[str, dict], observations: dict[str, dict]) -> l
     all_obs_ids = set(observations)
     for oid in sorted(observations):
         for ref in observations[oid].get("contradicting_refs", []):
-            target = ref.split("#", 1)[0].split(" ", 1)[0]
+            target = normalize_ref_target(ref)
             if target in all_obs_ids:
                 relations.append({"type": "observation_contradicts", "from": oid, "to": target})
     return relations
