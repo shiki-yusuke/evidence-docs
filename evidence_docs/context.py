@@ -88,10 +88,13 @@ def run_context_query(bundle_dir: Path, query: dict) -> dict:
             # budget -- an empty result is worse than a single over-budget
             # claim.
             if selected and used + est > token_budget:
-                truncated = True
                 break
             selected.append(c)
             used += est
+        # truncated if some matching claims were dropped, or if the kept
+        # set (necessarily just the first claim, per the rule above) is
+        # itself already over budget.
+        truncated = len(selected) < len(ordered) or used > token_budget
 
     return {
         "query": query,

@@ -171,8 +171,13 @@ def generate(
     repo_relative_prefix = "./" if rel == "." else rel.replace(os.sep, "/") + "/"
 
     if regen_command is None:
+        # Deliberately uses "." rather than corpus_dir's absolute path: the
+        # generated output must be a pure function of corpus content +
+        # arguments, not of where the corpus happens to sit on disk (two
+        # byte-identical copies of the same corpus at different paths must
+        # produce byte-identical site/index.md).
         regen_command = (
-            f"evidence-docs generate {corpus_dir} "
+            "evidence-docs generate . "
             f"--generated-at {generated_at} --repo-commit {repo_commit}"
         )
 
