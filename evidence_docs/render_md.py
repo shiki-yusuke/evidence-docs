@@ -35,7 +35,8 @@ def md_escape_inline(s) -> str:
     """Minimal escaping for Markdown headings/table cells.
 
     Backticks inside statement text are intentionally left alone so inline
-    code (e.g. `if (saved && this.scopeId)`) still renders as code on GitHub.
+    code (e.g. `if (result.ok && scope.is_active)`) still renders as code
+    on GitHub.
     """
 
     return str(s).replace("|", "\\|")

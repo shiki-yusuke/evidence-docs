@@ -2,10 +2,10 @@
 id-registry.yaml + gaps.yaml -> an in-memory corpus, or a CorpusError
 explaining exactly what is wrong.
 
-This module is a behavior-preserving port of the validation logic proven out
-in the sketch-web `CLI-1919` pilot corpus generator across eight rounds of
-review (human + Copilot + Codex bot). See docs/schema.md for what is and
-isn't verified, and why each check exists.
+This module is a behavior-preserving port of validation logic proven out in
+an internal pilot corpus generator across eight rounds of review (human +
+automated code review bots). See docs/schema.md for what is and isn't
+verified, and why each check exists.
 """
 
 from __future__ import annotations
