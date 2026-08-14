@@ -7,3 +7,4 @@ venv/
 build/
 dist/
 .DS_Store
+.serena/
