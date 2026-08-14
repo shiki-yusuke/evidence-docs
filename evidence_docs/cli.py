@@ -12,7 +12,7 @@ from . import __version__
 from .bundle import generate as run_generate
 from .bundle import resolve_repo_root
 from .bundle import validate as run_validate
-from .context import run_context_query
+from .context import QueryError, run_context_query
 from .errors import CorpusError
 from .init_templates import scaffold
 
@@ -85,11 +85,16 @@ def _cmd_context(args: argparse.Namespace) -> int:
     try:
         query = json.loads(query_text)
     except json.JSONDecodeError as e:
+        # Exit 2 (not 1): this is a malformed --query argument, a usage
+        # error, not a corpus/bundle validation failure.
         print(f"--query is not valid JSON (and not an existing file path): {e}", file=sys.stderr)
-        return 1
+        return 2
 
     try:
         result = run_context_query(bundle_dir, query)
+    except QueryError as e:
+        print(f"--query is invalid: {e}", file=sys.stderr)
+        return 2
     except CorpusError as e:
         print(f"context query failed: {e}", file=sys.stderr)
         return 1

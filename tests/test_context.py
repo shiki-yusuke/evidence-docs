@@ -6,7 +6,7 @@ import json
 
 import pytest
 
-from evidence_docs.context import run_context_query
+from evidence_docs.context import QueryError, run_context_query, validate_query
 from evidence_docs.errors import CorpusError
 
 
@@ -110,3 +110,69 @@ def test_token_budget_always_keeps_at_least_one_claim(tmp_path):
 def test_missing_bundle_raises_helpful_error(tmp_path):
     with pytest.raises(CorpusError, match="run `evidence-docs generate`"):
         run_context_query(tmp_path / "bundle", {"seeds": {"paths": ["x"]}})
+
+
+# --- validate_query() shape checks -----------------------------------------
+
+
+def test_validate_query_accepts_well_formed_query():
+    validate_query({"seeds": {"paths": ["a.py"], "topic_ids": ["T-01"]}, "token_budget": 100})  # no raise
+    validate_query({})  # no raise
+
+
+@pytest.mark.parametrize("bad_query", [None, [], "a string", 42, True])
+def test_validate_query_rejects_non_object_top_level(bad_query):
+    with pytest.raises(QueryError, match="must be a JSON object"):
+        validate_query(bad_query)
+
+
+def test_validate_query_rejects_non_object_seeds():
+    with pytest.raises(QueryError, match="seeds must be an object"):
+        validate_query({"seeds": ["not", "an", "object"]})
+
+
+@pytest.mark.parametrize("bad_paths", [["ok", 1], "not-a-list", {"nope": True}, [None]])
+def test_validate_query_rejects_malformed_seed_paths(bad_paths):
+    with pytest.raises(QueryError, match="seeds.paths must be a list of strings"):
+        validate_query({"seeds": {"paths": bad_paths}})
+
+
+@pytest.mark.parametrize("bad_topic_ids", [[1, 2], "T-01", {"T-01": True}])
+def test_validate_query_rejects_malformed_seed_topic_ids(bad_topic_ids):
+    with pytest.raises(QueryError, match="seeds.topic_ids must be a list of strings"):
+        validate_query({"seeds": {"topic_ids": bad_topic_ids}})
+
+
+def test_validate_query_rejects_oversized_seed_list():
+    with pytest.raises(QueryError, match="1000-entry limit"):
+        validate_query({"seeds": {"paths": [f"p{i}.py" for i in range(1001)]}})
+
+
+@pytest.mark.parametrize("bad_budget", [0, -1, "100", 1.5, True, False])
+def test_validate_query_rejects_invalid_token_budget(bad_budget):
+    with pytest.raises(QueryError, match="token_budget must be a positive integer"):
+        validate_query({"token_budget": bad_budget})
+
+
+def test_validate_query_accepts_null_token_budget():
+    validate_query({"token_budget": None})  # treated as "not set", no raise
+
+
+def test_validate_query_rejects_excessive_nesting():
+    deeply_nested: dict = {}
+    cursor = deeply_nested
+    for _ in range(10):
+        cursor["seeds"] = {}
+        cursor = cursor["seeds"]
+    with pytest.raises(QueryError, match="nested more than"):
+        validate_query(deeply_nested)
+
+
+def test_run_context_query_raises_query_error_for_malformed_query(tmp_path):
+    bundle_dir = _write_bundle(tmp_path, [], [])
+    with pytest.raises(QueryError):
+        run_context_query(bundle_dir, {"seeds": {"paths": "not-a-list"}})
+
+
+def test_query_error_is_a_corpus_error_subclass():
+    assert issubclass(QueryError, CorpusError)

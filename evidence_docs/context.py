@@ -24,6 +24,63 @@ from .errors import CorpusError
 # enough for budget truncation; not meant to match any specific tokenizer.
 _CHARS_PER_TOKEN_ESTIMATE = 4
 
+_MAX_SEED_LIST_LEN = 1000
+_MAX_QUERY_DEPTH = 6
+
+
+class QueryError(CorpusError):
+    """Raised when a --query payload itself is malformed input (wrong JSON
+    shape, wrong field types, too large/deep), as opposed to a
+    corpus/bundle-state problem (e.g. `generate` hasn't been run yet).
+
+    Kept as a CorpusError subclass so any caller that only knows about
+    CorpusError still catches it, but the CLI can tell the two apart to
+    report a usage error (exit 2) instead of a run failure (exit 1).
+    """
+
+
+def _check_depth(obj, depth: int = 0) -> None:
+    if depth > _MAX_QUERY_DEPTH:
+        raise QueryError(f"--query is nested more than {_MAX_QUERY_DEPTH} levels deep")
+    if isinstance(obj, dict):
+        for v in obj.values():
+            _check_depth(v, depth + 1)
+    elif isinstance(obj, list):
+        for v in obj:
+            _check_depth(v, depth + 1)
+
+
+def _check_string_list(value, name: str) -> None:
+    if not isinstance(value, list) or not all(isinstance(v, str) for v in value):
+        raise QueryError(f"{name} must be a list of strings")
+    if len(value) > _MAX_SEED_LIST_LEN:
+        raise QueryError(f"{name} exceeds the {_MAX_SEED_LIST_LEN}-entry limit")
+
+
+def validate_query(query) -> None:
+    """Reject a --query payload that isn't shaped the way run_context_query()
+    expects, before any of its fields are accessed -- an untrusted/malformed
+    query should fail with an explanatory QueryError, not a bare
+    KeyError/TypeError/AttributeError traceback from deep inside retrieval.
+    """
+
+    if not isinstance(query, dict):
+        raise QueryError(f"--query must be a JSON object, got {type(query).__name__}")
+    _check_depth(query)
+
+    seeds = query.get("seeds", {})
+    if not isinstance(seeds, dict):
+        raise QueryError("--query.seeds must be an object")
+    if "paths" in seeds:
+        _check_string_list(seeds["paths"], "--query.seeds.paths")
+    if "topic_ids" in seeds:
+        _check_string_list(seeds["topic_ids"], "--query.seeds.topic_ids")
+
+    if "token_budget" in query and query["token_budget"] is not None:
+        token_budget = query["token_budget"]
+        if isinstance(token_budget, bool) or not isinstance(token_budget, int) or token_budget <= 0:
+            raise QueryError("--query.token_budget must be a positive integer")
+
 
 def _read_jsonl(path: Path) -> list[dict]:
     if not path.is_file():
@@ -41,6 +98,7 @@ def _estimate_tokens(claim: dict) -> int:
 
 
 def run_context_query(bundle_dir: Path, query: dict) -> dict:
+    validate_query(query)
     claims = _read_jsonl(bundle_dir / "claims.jsonl")
     relations = _read_jsonl(bundle_dir / "relations.jsonl")
 

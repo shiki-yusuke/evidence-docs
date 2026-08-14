@@ -165,11 +165,31 @@ def test_context_accepts_query_from_file(mini_domain, tmp_path, capsys):
 
 def test_context_rejects_invalid_json(mini_domain, capsys):
     rc = main(["context", str(mini_domain.corpus_dir), "--query", "{not json"])
-    assert rc == 1
+    assert rc == 2
     assert "not valid JSON" in capsys.readouterr().err
 
 
 def test_context_before_generate_fails_helpfully(mini_domain, capsys):
     rc = main(["context", str(mini_domain.corpus_dir), "--query", "{}"])
     assert rc == 1
-    assert "evidence-docs generate" in capsys.readouterr().err
+
+
+def test_context_rejects_malformed_query_shape_with_exit_2(mini_domain, capsys):
+    main(
+        [
+            "generate",
+            str(mini_domain.corpus_dir),
+            "--generated-at",
+            "2026-08-09T10:30:00Z",
+            "--repo-commit",
+            mini_domain.repo_commit,
+            "--repo-root",
+            str(mini_domain.repo_root),
+        ]
+    )
+    capsys.readouterr()
+
+    rc = main(["context", str(mini_domain.corpus_dir), "--query", json.dumps({"token_budget": -1})])
+    assert rc == 2
+    assert "--query is invalid" in capsys.readouterr().err
+
