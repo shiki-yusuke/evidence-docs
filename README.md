@@ -93,6 +93,14 @@ important -- what is deliberately *not* checked (statement truthfulness,
 `affected_paths` completeness, whether an author's `epistemic_status` is
 honest).
 
+## Case study
+
+[Writing evidence-linked docs exposed two missing regression
+tests](docs/articles/writing-evidence-linked-docs-exposed-two-missing-regression-tests.md) —
+how authoring a claim corpus against a real codebase
+([agent-cost](https://github.com/shiki-yusuke/agent-cost)) surfaced two missing regression
+tests, both since closed by merged PRs.
+
 ## Fixtures / examples
 
 `fixtures/mini-domain/` is a small synthetic domain (a fictional in-memory
