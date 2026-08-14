@@ -1,0 +1,10 @@
+topic_id: T-03
+title: Legacy cache cleanup on store open
+description: >-
+  The one-time purge of legacy cache entries for a scope when a TaskStore
+  is first opened for that scope.
+representative_symbols:
+  - TaskStore._purge_legacy_cache
+representative_paths:
+  - src/task_store.py
+related_topics: [T-02]

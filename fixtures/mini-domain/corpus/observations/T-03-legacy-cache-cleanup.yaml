@@ -1,0 +1,66 @@
+topic_id: T-03
+observations:
+  - observation_id: OBS-006
+    topic_id: T-03
+    claim_kind: invariant
+    statement: >-
+      Opening a TaskStore for a scope always purges any legacy cache
+      entries under that scope's `legacy:<scope_id>:` prefix exactly once,
+      as part of construction.
+    origin: reconstructed
+    epistemic_status: execution_verified
+    review_status: unreviewed
+    conformance_status: matched
+    subject_refs:
+      - TaskStore._purge_legacy_cache
+    provenance:
+      - source_kind: test
+        uri: tests/test_task_store.py
+        selector: test_store_purges_legacy_cache_on_open
+        content_digest: "__DIGEST:tests/test_task_store.py__"
+        repo_commit: "__REPO_COMMIT__"
+        extraction_method: static-read-test-assertions
+        observed_at: "2026-08-01T00:00:00Z"
+    supporting_refs: []
+    contradicting_refs: []
+    valid_at_commit: "__REPO_COMMIT__"
+    affected_paths:
+      - src/task_store.py
+
+  - observation_id: OBS-007
+    topic_id: T-03
+    claim_kind: decision_record
+    statement: >-
+      An earlier design note called for legacy cache cleanup to be exposed
+      as a module-level `purge_legacy_cache(scope_id, backend)` function.
+      The implementation instead added it as a private
+      `TaskStore._purge_legacy_cache()` method invoked from `__init__`.
+      This deviation from the design note was accepted as-is (see
+      docs/decisions/legacy-cleanup-placement.md): no caller needs to purge
+      a scope without also opening a store for it.
+    origin: recorded
+    epistemic_status: recorded_decision
+    review_status: unreviewed
+    conformance_status: drifted
+    subject_refs:
+      - TaskStore._purge_legacy_cache
+    provenance:
+      - source_kind: spec
+        uri: docs/decisions/legacy-cleanup-placement.md
+        content_digest: "__DIGEST:docs/decisions/legacy-cleanup-placement.md__"
+        repo_commit: "__REPO_COMMIT__"
+        extraction_method: static-read-source
+        observed_at: "2026-08-01T00:00:00Z"
+      - source_kind: source
+        uri: src/task_store.py
+        selector: TaskStore._purge_legacy_cache
+        content_digest: "__DIGEST:src/task_store.py__"
+        repo_commit: "__REPO_COMMIT__"
+        extraction_method: static-read-source
+        observed_at: "2026-08-01T00:00:00Z"
+    supporting_refs: []
+    contradicting_refs:
+      - "docs/decisions/legacy-cleanup-placement.md#module-level export was originally requested"
+    valid_at_commit: "__REPO_COMMIT__"
+    affected_paths:
+      - src/task_store.py

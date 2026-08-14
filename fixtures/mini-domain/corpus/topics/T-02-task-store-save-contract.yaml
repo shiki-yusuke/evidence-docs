@@ -1,0 +1,10 @@
+topic_id: T-02
+title: TaskStore.save persistence contract
+description: >-
+  What TaskStore.save() guarantees about writing tasks and pruning old
+  versions, and the condition under which pruning is skipped.
+representative_symbols:
+  - TaskStore.save
+representative_paths:
+  - src/task_store.py
+related_topics: [T-01, T-03]

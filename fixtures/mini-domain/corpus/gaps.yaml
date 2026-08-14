@@ -1,0 +1,24 @@
+schema_version: "1.0"
+gaps:
+  - id: GAP-01
+    taxonomy: test_missing
+    title: "No dedicated test asserts that a whitespace-only list_id falls back to the new-list scope id format"
+    description: >-
+      resolve_task_scope_id() treats a list_id that is present but consists
+      only of whitespace the same as a blank one (falls back to the
+      new_list_token branch), per source reading. The existing tests cover
+      an empty string but not a whitespace-only string specifically.
+    gap_found: true
+    related_observation_ids: [OBS-003]
+    evidence_ref: "tests/test_task_store.py"
+  - id: GAP-02
+    taxonomy: independent_re_search_no_drift
+    title: "Re-checked that TaskStore.save() never wraps or swallows the backend's write() failure"
+    description: >-
+      Independently re-read TaskStore.save() to check whether it wraps or
+      swallows a falsy/exception result from backend.write(). It does
+      neither: the boolean result is returned as-is, and any exception
+      would propagate uncaught. No drift from the recorded decision found.
+    gap_found: false
+    related_observation_ids: [OBS-004, OBS-005]
+    evidence_ref: "src/task_store.py#TaskStore.save"

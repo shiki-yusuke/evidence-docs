@@ -1,0 +1,11 @@
+topic_id: T-01
+title: Scope id derivation contract
+description: >-
+  How resolve_task_scope_id derives a stable scope id for an existing task
+  list, and how it falls back to a token-derived id for lists that don't
+  have a persisted id yet.
+representative_symbols:
+  - resolve_task_scope_id
+representative_paths:
+  - src/task_store.py
+related_topics: [T-02]

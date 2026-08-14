@@ -1,0 +1,95 @@
+topic_id: T-02
+observations:
+  - observation_id: OBS-004
+    topic_id: T-02
+    claim_kind: behavior
+    statement: >-
+      TaskStore.save() only calls backend.prune_old_versions() when
+      backend.write() returned a truthy result; if the write fails, pruning
+      is skipped entirely.
+    origin: reconstructed
+    epistemic_status: execution_verified
+    review_status: unreviewed
+    conformance_status: matched
+    subject_refs:
+      - TaskStore.save
+    provenance:
+      - source_kind: test
+        uri: tests/test_task_store.py
+        selector: test_save_prunes_old_versions_only_when_write_succeeds
+        content_digest: "__DIGEST:tests/test_task_store.py__"
+        repo_commit: "__REPO_COMMIT__"
+        extraction_method: static-read-test-assertions
+        observed_at: "2026-08-01T00:00:00Z"
+      - source_kind: source
+        uri: src/task_store.py
+        selector: TaskStore.save
+        content_digest: "__DIGEST:src/task_store.py__"
+        repo_commit: "__REPO_COMMIT__"
+        extraction_method: static-read-source
+        observed_at: "2026-08-01T00:00:00Z"
+    supporting_refs: []
+    contradicting_refs: []
+    valid_at_commit: "__REPO_COMMIT__"
+    affected_paths:
+      - src/task_store.py
+
+  - observation_id: OBS-005
+    topic_id: T-02
+    claim_kind: decision_record
+    statement: >-
+      Pruning old versions only after a successful write is a deliberate
+      decision: pruning unconditionally would leave version metadata
+      pointing at content that was never actually persisted if the write
+      failed.
+    origin: recorded
+    epistemic_status: recorded_decision
+    review_status: unreviewed
+    conformance_status: matched
+    subject_refs:
+      - TaskStore.save
+    provenance:
+      - source_kind: spec
+        uri: docs/decisions/save-prune-on-success-only.md
+        content_digest: "__DIGEST:docs/decisions/save-prune-on-success-only.md__"
+        repo_commit: "__REPO_COMMIT__"
+        extraction_method: static-read-source
+        observed_at: "2026-08-01T00:00:00Z"
+    supporting_refs: []
+    contradicting_refs: []
+    valid_at_commit: "__REPO_COMMIT__"
+    affected_paths:
+      - src/task_store.py
+
+  - observation_id: OBS-008
+    topic_id: T-02
+    claim_kind: behavior
+    statement: >-
+      TaskStore.save() returns the backend's write() result verbatim; it
+      never wraps, transforms, or swallows that return value.
+    origin: reconstructed
+    epistemic_status: cross_source_corroborated
+    review_status: unreviewed
+    conformance_status: matched
+    subject_refs:
+      - TaskStore.save
+    provenance:
+      - source_kind: source
+        uri: src/task_store.py
+        selector: TaskStore.save
+        content_digest: "__DIGEST:src/task_store.py__"
+        repo_commit: "__REPO_COMMIT__"
+        extraction_method: static-read-source
+        observed_at: "2026-08-01T00:00:00Z"
+      - source_kind: review_memory
+        uri: "external-review-notes.jsonl#L118"
+        selector: "record id rm-2026-08-01-004"
+        content_digest: not_computed_external_to_repo
+        repo_commit: "__REPO_COMMIT__"
+        extraction_method: external-review-memory-lookup
+        observed_at: "2026-08-01T00:00:00Z"
+    supporting_refs: []
+    contradicting_refs: []
+    valid_at_commit: "__REPO_COMMIT__"
+    affected_paths:
+      - src/task_store.py

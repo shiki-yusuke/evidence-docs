@@ -1,0 +1,97 @@
+topic_id: T-01
+observations:
+  - observation_id: OBS-001
+    topic_id: T-01
+    claim_kind: behavior
+    statement: >-
+      resolve_task_scope_id returns a deterministic scope id derived from
+      list_id when list_id is given and non-blank. Calling it twice with the
+      same list_id always returns the same scope id.
+    origin: reconstructed
+    epistemic_status: execution_verified
+    review_status: unreviewed
+    conformance_status: matched
+    negation_check: >-
+      Removed the `list_id.strip()` guard's `is not None` clause so a blank
+      list_id would fall through to the existing-list branch instead of the
+      new-list branch; test_resolve_scope_id_stable_for_existing_list still
+      passed (list_id="42" is unaffected), but
+      test_resolve_scope_id_uses_new_list_token_when_list_id_blank went red
+      as expected, confirming the test actually exercises this branch.
+    subject_refs:
+      - resolve_task_scope_id
+    provenance:
+      - source_kind: test
+        uri: tests/test_task_store.py
+        selector: test_resolve_scope_id_stable_for_existing_list
+        content_digest: "__DIGEST:tests/test_task_store.py__"
+        repo_commit: "__REPO_COMMIT__"
+        extraction_method: static-read-test-assertions
+        observed_at: "2026-08-01T00:00:00Z"
+      - source_kind: source
+        uri: src/task_store.py
+        selector: resolve_task_scope_id
+        content_digest: "__DIGEST:src/task_store.py__"
+        repo_commit: "__REPO_COMMIT__"
+        extraction_method: static-read-source
+        observed_at: "2026-08-01T00:00:00Z"
+    supporting_refs: []
+    contradicting_refs: []
+    valid_at_commit: "__REPO_COMMIT__"
+    affected_paths:
+      - src/task_store.py
+
+  - observation_id: OBS-002
+    topic_id: T-01
+    claim_kind: behavior
+    statement: >-
+      When list_id is missing or blank, resolve_task_scope_id falls back to
+      a scope id derived from new_list_token instead, so two calls with
+      different tokens never collide.
+    origin: reconstructed
+    epistemic_status: execution_verified
+    review_status: unreviewed
+    conformance_status: matched
+    subject_refs:
+      - resolve_task_scope_id
+    provenance:
+      - source_kind: test
+        uri: tests/test_task_store.py
+        selector: test_resolve_scope_id_uses_new_list_token_when_list_id_blank
+        content_digest: "__DIGEST:tests/test_task_store.py__"
+        repo_commit: "__REPO_COMMIT__"
+        extraction_method: static-read-test-assertions
+        observed_at: "2026-08-01T00:00:00Z"
+    supporting_refs: []
+    contradicting_refs: []
+    valid_at_commit: "__REPO_COMMIT__"
+    affected_paths:
+      - src/task_store.py
+
+  - observation_id: OBS-003
+    topic_id: T-01
+    claim_kind: constraint
+    statement: >-
+      A list_id that is present but consists only of whitespace is treated
+      the same as a missing list_id (falls back to the new-list branch),
+      based on reading the `list_id.strip()` guard. No dedicated test
+      exercises a whitespace-only string specifically (see GAP-01).
+    origin: reconstructed
+    epistemic_status: single_source_observation
+    review_status: unreviewed
+    conformance_status: not_checked
+    subject_refs:
+      - resolve_task_scope_id
+    provenance:
+      - source_kind: source
+        uri: src/task_store.py
+        selector: resolve_task_scope_id
+        content_digest: "__DIGEST:src/task_store.py__"
+        repo_commit: "__REPO_COMMIT__"
+        extraction_method: static-read-source
+        observed_at: "2026-08-01T00:00:00Z"
+    supporting_refs: []
+    contradicting_refs: []
+    valid_at_commit: "__REPO_COMMIT__"
+    affected_paths:
+      - src/task_store.py

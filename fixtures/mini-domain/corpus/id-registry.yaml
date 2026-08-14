@@ -1,0 +1,15 @@
+schema_version: "1.0"
+minted_at_default: "2026-08-01"
+topics:
+  T-01: { slug: scope-id-derivation, minted_at: "2026-08-01" }
+  T-02: { slug: task-store-save-contract, minted_at: "2026-08-01" }
+  T-03: { slug: legacy-cache-cleanup, minted_at: "2026-08-01" }
+observations:
+  OBS-001: { topic_id: T-01, minted_at: "2026-08-01" }
+  OBS-002: { topic_id: T-01, minted_at: "2026-08-01" }
+  OBS-003: { topic_id: T-01, minted_at: "2026-08-01" }
+  OBS-004: { topic_id: T-02, minted_at: "2026-08-01" }
+  OBS-005: { topic_id: T-02, minted_at: "2026-08-01" }
+  OBS-006: { topic_id: T-03, minted_at: "2026-08-01" }
+  OBS-007: { topic_id: T-03, minted_at: "2026-08-01" }
+  OBS-008: { topic_id: T-02, minted_at: "2026-08-01" }
