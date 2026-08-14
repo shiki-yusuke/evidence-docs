@@ -63,7 +63,11 @@ evidence-docs context docs/claims \
 `--generated-at` and `--repo-commit` are always explicit arguments, never
 derived from `datetime.now()` or `git rev-parse` at run time -- the same
 corpus + the same arguments always produce byte-identical `site/`/`bundle/`
-output.
+output from `generate`, and the same bundle + query always produce the same
+result from `context`. This determinism guarantee is scoped to `generate`
+and `context` specifically: `init` stamps `id-registry.yaml` with today's
+date as a human-readable authoring hint, which has no bearing on any
+corpus's validity or on `generate`/`context` output.
 
 ## Commands
 
