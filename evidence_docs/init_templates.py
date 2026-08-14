@@ -11,6 +11,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
+from .gitio import resolve_write_path
 from .render_md import README_COUNTS_TABLE_END, README_COUNTS_TABLE_START
 
 ID_REGISTRY_TEMPLATE = """\
@@ -66,29 +67,34 @@ verified by `validate`/`generate`.
 def scaffold(dir_path: Path, today: str) -> list[str]:
     """Create the corpus skeleton under dir_path. Idempotent: files/dirs that
     already exist are left untouched (reported, not overwritten).
+
+    Every write is resolved through resolve_write_path() first, so a
+    dir_path that already contains a symlinked `topics`/`observations`/
+    `id-registry.yaml`/etc. (e.g. re-running init against a corpus checked
+    out from an untrusted source) can't redirect a write outside dir_path.
     """
 
     created: list[str] = []
     dir_path.mkdir(parents=True, exist_ok=True)
 
     for sub in ("topics", "observations"):
-        p = dir_path / sub
+        p = resolve_write_path(dir_path, sub)
         if not p.is_dir():
             p.mkdir(parents=True)
-            (p / ".gitkeep").write_text("", encoding="utf-8")
+            resolve_write_path(dir_path, f"{sub}/.gitkeep").write_text("", encoding="utf-8")
             created.append(str(p))
 
-    registry_path = dir_path / "id-registry.yaml"
+    registry_path = resolve_write_path(dir_path, "id-registry.yaml")
     if not registry_path.exists():
         registry_path.write_text(ID_REGISTRY_TEMPLATE.format(today=today), encoding="utf-8")
         created.append(str(registry_path))
 
-    gaps_path = dir_path / "gaps.yaml"
+    gaps_path = resolve_write_path(dir_path, "gaps.yaml")
     if not gaps_path.exists():
         gaps_path.write_text(GAPS_TEMPLATE, encoding="utf-8")
         created.append(str(gaps_path))
 
-    readme_path = dir_path / "README.md"
+    readme_path = resolve_write_path(dir_path, "README.md")
     if not readme_path.exists():
         readme_path.write_text(README_TEMPLATE, encoding="utf-8")
         created.append(str(readme_path))

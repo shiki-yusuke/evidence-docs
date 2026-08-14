@@ -24,9 +24,10 @@ from .corpus import (
     find_repo_commit_mismatches,
     load_corpus,
     verify_content_digests_against_commit,
+    yaml_shape_guard,
 )
 from .errors import CorpusError
-from .gitio import BlobDigestCache
+from .gitio import BlobDigestCache, resolve_write_path
 from .render_md import render_markdown, render_overview_md, update_readme_counts_table
 from .schema import is_full_git_sha, is_valid_iso8601_utc, sha256_hex
 from .schema import SOURCE_KINDS_REPO_INTERNAL
@@ -34,13 +35,26 @@ from .schema import SOURCE_KINDS_REPO_INTERNAL
 GENERATOR_NAME = "evidence-docs"
 
 
-def write_json(path: Path, obj) -> None:
+def write_json(corpus_dir: Path, relative: str, obj) -> Path:
+    """Write JSON under corpus_dir at `relative`, refusing to follow a
+    symlink out of corpus_dir (see gitio.resolve_write_path)."""
+
+    path = resolve_write_path(corpus_dir, relative)
     path.write_text(json.dumps(obj, indent=2, ensure_ascii=False, sort_keys=True) + "\n", encoding="utf-8")
+    return path
 
 
-def write_jsonl(path: Path, rows: list[dict]) -> None:
+def write_jsonl(corpus_dir: Path, relative: str, rows: list[dict]) -> Path:
+    path = resolve_write_path(corpus_dir, relative)
     lines = [json.dumps(row, ensure_ascii=False, sort_keys=True) for row in rows]
     path.write_text("\n".join(lines) + ("\n" if lines else ""), encoding="utf-8")
+    return path
+
+
+def write_text(corpus_dir: Path, relative: str, text: str) -> Path:
+    path = resolve_write_path(corpus_dir, relative)
+    path.write_text(text, encoding="utf-8")
+    return path
 
 
 def resolve_repo_root(corpus_dir: Path, repo_root_arg: str | None) -> Path:
@@ -88,8 +102,8 @@ def validate(corpus_dir: Path, repo_commit: str, repo_root: Path) -> ValidationR
         )
 
     blob_cache = BlobDigestCache(repo_root)
-    warnings = verify_content_digests_against_commit(observations, repo_commit, repo_root, blob_cache)
-    return ValidationResult(corpus=corpus, warnings=warnings)
+    drift_warnings = verify_content_digests_against_commit(observations, repo_commit, repo_root, blob_cache)
+    return ValidationResult(corpus=corpus, warnings=corpus.ref_warnings + drift_warnings)
 
 
 class GenerateResult:
@@ -124,27 +138,31 @@ def generate(
     relations = build_relations(topics, observations)
     evidence = build_evidence(observations)
     conflicts = build_conflicts(observations)
-    gaps_out = build_gaps(gaps)
+    with yaml_shape_guard(corpus_dir / "gaps.yaml"):
+        gaps_out = build_gaps(gaps)
 
-    readme_path = corpus_dir / "README.md"
-    if readme_path.is_file():
-        update_readme_counts_table(readme_path, claims)
+    # resolve_write_path guards every write below against a symlinked site/
+    # or bundle/ directory (or a symlinked README.md) redirecting output
+    # outside corpus_dir -- see gitio.resolve_write_path.
+    readme_resolved = resolve_write_path(corpus_dir, "README.md")
+    if readme_resolved.is_file():
+        update_readme_counts_table(readme_resolved, claims)
 
-    site_dir = corpus_dir / "site"
-    bundle_dir = corpus_dir / "bundle"
+    site_dir = resolve_write_path(corpus_dir, "site")
+    bundle_dir = resolve_write_path(corpus_dir, "bundle")
     site_dir.mkdir(exist_ok=True)
     bundle_dir.mkdir(exist_ok=True)
 
-    write_jsonl(bundle_dir / "claims.jsonl", claims)
-    write_jsonl(bundle_dir / "relations.jsonl", relations)
-    write_jsonl(bundle_dir / "evidence.jsonl", evidence)
-    write_jsonl(bundle_dir / "conflicts.jsonl", conflicts)
-    write_json(bundle_dir / "gaps.json", gaps_out)
+    claims_path = write_jsonl(corpus_dir, "bundle/claims.jsonl", claims)
+    relations_path = write_jsonl(corpus_dir, "bundle/relations.jsonl", relations)
+    evidence_path = write_jsonl(corpus_dir, "bundle/evidence.jsonl", evidence)
+    conflicts_path = write_jsonl(corpus_dir, "bundle/conflicts.jsonl", conflicts)
+    gaps_path_out = write_json(corpus_dir, "bundle/gaps.json", gaps_out)
 
     corpus_digest = sha256_hex(
         "\n".join(
-            (bundle_dir / name).read_text(encoding="utf-8")
-            for name in ("claims.jsonl", "relations.jsonl", "evidence.jsonl", "conflicts.jsonl", "gaps.json")
+            p.read_text(encoding="utf-8")
+            for p in (claims_path, relations_path, evidence_path, conflicts_path, gaps_path_out)
         )
     )
 
@@ -162,10 +180,8 @@ def generate(
             "by_conformance_status": counts_by(claims, "conformance_status"),
         },
     }
-    write_json(bundle_dir / "manifest.json", manifest)
-    (bundle_dir / "overview.md").write_text(
-        render_overview_md(topics, claims, generated_at, repo_commit), encoding="utf-8"
-    )
+    write_json(corpus_dir, "bundle/manifest.json", manifest)
+    write_text(corpus_dir, "bundle/overview.md", render_overview_md(topics, claims, generated_at, repo_commit))
 
     rel = os.path.relpath(repo_root, site_dir)
     repo_relative_prefix = "./" if rel == "." else rel.replace(os.sep, "/") + "/"
@@ -181,7 +197,9 @@ def generate(
             f"--generated-at {generated_at} --repo-commit {repo_commit}"
         )
 
-    (site_dir / "index.md").write_text(
+    write_text(
+        corpus_dir,
+        "site/index.md",
         render_markdown(
             topics,
             observations,
@@ -192,7 +210,6 @@ def generate(
             corpus_title,
             regen_command,
         ),
-        encoding="utf-8",
     )
 
     return GenerateResult(claims=claims, topics=topics, manifest=manifest, warnings=result.warnings)

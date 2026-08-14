@@ -12,6 +12,24 @@ from pathlib import Path
 from .errors import CorpusError
 
 
+def _resolve_within(root: Path, relative: str) -> Path | None:
+    """Resolve `root / relative` and return it only if it's still inside
+    `root` once symlinks are followed and `..` is normalized; None if it
+    escapes. Shared by the read-side guard (resolve_repo_path) and the
+    write-side guard (resolve_write_path) below -- both need the exact same
+    "does this really stay inside the root" check, just against different
+    roots and with different error messages for the two directions.
+    """
+
+    root_resolved = root.resolve()
+    resolved = (root / relative).resolve()
+    try:
+        resolved.relative_to(root_resolved)
+    except ValueError:
+        return None
+    return resolved
+
+
 def resolve_repo_path(repo_root: Path, uri: str) -> Path:
     """Resolve a provenance uri as a repo-root-relative path, safely.
 
@@ -22,12 +40,30 @@ def resolve_repo_path(repo_root: Path, uri: str) -> Path:
     repo root.
     """
 
-    repo_root_resolved = repo_root.resolve()
-    resolved = (repo_root / uri).resolve()
-    try:
-        resolved.relative_to(repo_root_resolved)
-    except ValueError as e:
-        raise CorpusError(f"provenance uri escapes repo root: {uri!r} -> {resolved}") from e
+    resolved = _resolve_within(repo_root, uri)
+    if resolved is None:
+        raise CorpusError(f"provenance uri escapes repo root: {uri!r} -> {(repo_root / uri).resolve()}")
+    return resolved
+
+
+def resolve_write_path(corpus_dir: Path, relative: str) -> Path:
+    """Resolve a path evidence-docs is about to WRITE to (site/, bundle/,
+    README.md, and init's scaffold files), guaranteeing the write stays
+    inside corpus_dir even if some path component -- an existing `site` or
+    `bundle` directory, or README.md itself -- turns out to be a symlink.
+
+    This is the write-side mirror of resolve_repo_path()'s read-side guard:
+    without it, a corpus directory containing (or having had substituted
+    in) a malicious symlink could redirect a `generate`/`init` write to an
+    arbitrary path outside the corpus directory.
+    """
+
+    resolved = _resolve_within(corpus_dir, relative)
+    if resolved is None:
+        raise CorpusError(
+            f"refusing to write outside the corpus directory: {relative!r} under "
+            f"{corpus_dir} would resolve to {(corpus_dir / relative).resolve()}"
+        )
     return resolved
 
 
