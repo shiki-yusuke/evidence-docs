@@ -32,7 +32,9 @@ dev = ["pytest>=7.0"]
 evidence-docs = "evidence_docs.cli:main"
 
 [project.urls]
-Homepage = "https://github.com/evidence-docs/evidence-docs"
+Homepage = "https://github.com/shiki-yusuke/evidence-docs"
+Repository = "https://github.com/shiki-yusuke/evidence-docs"
+Issues = "https://github.com/shiki-yusuke/evidence-docs/issues"
 
 [tool.setuptools.packages.find]
 include = ["evidence_docs*"]
