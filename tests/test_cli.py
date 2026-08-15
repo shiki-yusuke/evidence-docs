@@ -15,6 +15,7 @@ def test_init_creates_scaffold_and_exits_zero(tmp_path, capsys):
     assert (corpus_dir / "id-registry.yaml").is_file()
     assert (corpus_dir / "gaps.yaml").is_file()
     assert (corpus_dir / "README.md").is_file()
+    assert (corpus_dir / "EXAMPLE.md").is_file()
     assert (corpus_dir / "topics").is_dir()
     assert (corpus_dir / "observations").is_dir()
 

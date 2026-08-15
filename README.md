@@ -58,7 +58,9 @@ removed when the command exits.
 
 ```bash
 evidence-docs init docs/claims
-# ... author topics/*.yaml and observations/*.yaml, registering each new
+# ... see docs/claims/EXAMPLE.md for a fully worked topic + observation you
+#     can copy and edit -- including the full enum reference for every field
+#     that only accepts a fixed set of values -- registering each new
 #     topic_id/observation_id in id-registry.yaml first ...
 
 evidence-docs validate docs/claims --repo-commit <full-git-sha>
@@ -87,7 +89,7 @@ corpus's validity or on `generate`/`context` output.
 
 | command | what it does |
 |---|---|
-| `init <dir>` | scaffold `topics/`, `observations/`, `id-registry.yaml`, `gaps.yaml`, `README.md` |
+| `init <dir>` | scaffold `topics/`, `observations/`, `id-registry.yaml`, `gaps.yaml`, `README.md`, `EXAMPLE.md` (a worked topic + observation to copy, and the enum reference for every fixed-value field); `validate` passes immediately on the scaffold as-is (0 observations) |
 | `validate <dir> --repo-commit <sha> [--repo-root <path>]` | full corpus validation, no output written (CI-friendly exit 0/1) |
 | `generate <dir> --generated-at <iso> --repo-commit <sha> [--repo-root <path>]` | validate, then deterministically write `site/index.md` + `bundle/*` |
 | `context <dir> --query <json\|path>` | select claims from `bundle/` for a query (`seeds.paths` / `seeds.topic_ids`, optional `token_budget`); v0 retrieval, see `docs/schema.md` |
