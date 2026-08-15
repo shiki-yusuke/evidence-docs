@@ -266,8 +266,8 @@ def run_demo(out: TextIO | None = None) -> int:
 
         p("[5/5] start the same thing on your own repo:")
         p("      evidence-docs init docs/claims")
-        p("      # ... author topics/*.yaml and observations/*.yaml, registering each new")
-        p("      #     topic_id/observation_id in id-registry.yaml first ...")
+        p("      # ... see docs/claims/EXAMPLE.md for a worked topic + observation to copy,")
+        p("      #     registering each new topic_id/observation_id in id-registry.yaml first ...")
         p("      evidence-docs validate docs/claims --repo-commit <full-git-sha>")
 
     if not checks_as_expected:
