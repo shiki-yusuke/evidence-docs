@@ -40,6 +40,20 @@ pip install evidence-docs
 
 (Python 3.9+, one dependency: PyYAML.)
 
+## First verified result in two lines
+
+```bash
+pip install evidence-docs && evidence-docs demo
+```
+
+`demo` builds a throwaway git repo + a tiny real corpus in a temp directory,
+runs the actual `validate` path against it (PASS), then breaks a copy of that
+same corpus three different ways -- a stale `content_digest`, a typo'd
+`source_kind`, a `provenance.repo_commit` that disagrees with `--repo-commit`
+-- and validates each of those too, so you see exactly what gets rejected and
+why. Nothing it touches persists: everything runs in a temp directory that is
+removed when the command exits.
+
 ## Quick start
 
 ```bash
@@ -77,6 +91,7 @@ corpus's validity or on `generate`/`context` output.
 | `validate <dir> --repo-commit <sha> [--repo-root <path>]` | full corpus validation, no output written (CI-friendly exit 0/1) |
 | `generate <dir> --generated-at <iso> --repo-commit <sha> [--repo-root <path>]` | validate, then deterministically write `site/index.md` + `bundle/*` |
 | `context <dir> --query <json\|path>` | select claims from `bundle/` for a query (`seeds.paths` / `seeds.topic_ids`, optional `token_budget`); v0 retrieval, see `docs/schema.md` |
+| `demo` | build a throwaway example corpus, `validate` it, then break it three ways and `validate` again -- no arguments, nothing persists |
 
 `--repo-root` defaults to the corpus directory itself; a relative
 `--repo-root` is resolved against the corpus directory, not your shell's
