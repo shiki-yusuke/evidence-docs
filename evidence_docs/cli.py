@@ -13,6 +13,7 @@ from .bundle import generate as run_generate
 from .bundle import resolve_repo_root
 from .bundle import validate as run_validate
 from .context import QueryError, run_context_query
+from .demo import run_demo
 from .errors import CorpusError
 from .init_templates import scaffold
 
@@ -103,6 +104,10 @@ def _cmd_context(args: argparse.Namespace) -> int:
     return 0
 
 
+def _cmd_demo(args: argparse.Namespace) -> int:
+    return run_demo()
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(prog="evidence-docs", description=__doc__)
     parser.add_argument("--version", action="version", version=f"evidence-docs {__version__}")
@@ -145,6 +150,12 @@ def build_parser() -> argparse.ArgumentParser:
         '\'{"seeds": {"paths": ["src/foo.py"]}, "token_budget": 4000}\'',
     )
     p_context.set_defaults(func=_cmd_context)
+
+    p_demo = sub.add_parser(
+        "demo",
+        help="build a throwaway example corpus, validate it, then break it three ways and validate again",
+    )
+    p_demo.set_defaults(func=_cmd_demo)
 
     return parser
 
