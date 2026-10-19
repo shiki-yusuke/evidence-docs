@@ -1,4 +1,4 @@
-"""evidence-docs command-line interface: init / validate / generate / context."""
+"""evidence-docs command-line interface: init / validate / generate / explain / context."""
 
 from __future__ import annotations
 
@@ -9,6 +9,7 @@ import sys
 from pathlib import Path
 
 from . import __version__
+from .bundle import explain as run_explain
 from .bundle import generate as run_generate
 from .bundle import resolve_repo_root
 from .bundle import validate as run_validate
@@ -70,6 +71,21 @@ def _cmd_generate(args: argparse.Namespace) -> int:
         file=sys.stderr,
     )
     print(f"corpus_digest={result.manifest['corpus_digest']}", file=sys.stderr)
+    return 0
+
+
+def _cmd_explain(args: argparse.Namespace) -> int:
+    corpus_dir = Path(args.dir)
+    repo_root = resolve_repo_root(corpus_dir, args.repo_root)
+    try:
+        path, status = run_explain(
+            corpus_dir, Path(args.scope_file), args.repo_commit, args.generated_at, repo_root
+        )
+    except CorpusError as e:
+        print(f"corpus validation failed: {e}", file=sys.stderr)
+        return 1
+    print(path)
+    print(status, file=sys.stderr)
     return 0
 
 
@@ -140,6 +156,22 @@ def build_parser() -> argparse.ArgumentParser:
     )
     p_generate.add_argument("--title", default="claim corpus", help="heading used in site/index.md")
     p_generate.set_defaults(func=_cmd_generate)
+
+    p_explain = sub.add_parser(
+        "explain",
+        help="generate a non-authoritative explanation (authority: none) of the claims touching a change scope",
+    )
+    p_explain.add_argument("dir", help="corpus directory")
+    p_explain.add_argument("--scope-file", required=True, help="impact-scan:v1 snapshot JSON (lane ImpactScanSnapshot)")
+    p_explain.add_argument("--repo-commit", required=True, help="full 40-char git SHA this corpus is authored against")
+    p_explain.add_argument("--generated-at", required=True, help="ISO8601 UTC, e.g. 2026-08-09T10:30:00Z")
+    p_explain.add_argument(
+        "--repo-root",
+        default=None,
+        help="path to the git repo provenance uris are relative to; relative paths are "
+        "resolved against `dir`. Defaults to `dir` itself.",
+    )
+    p_explain.set_defaults(func=_cmd_explain)
 
     p_context = sub.add_parser("context", help="select claims from bundle/ for a query")
     p_context.add_argument("dir", help="corpus directory (must already have bundle/ from `generate`)")

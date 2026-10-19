@@ -3,6 +3,25 @@
 All notable changes to `evidence-docs`. This project is pre-1.0; the corpus schema
 and CLI surface may still change between minor versions.
 
+## Unreleased
+
+### Added
+- `evidence-docs explain` and the `explanations/` namespace: a deterministic,
+  LLM-free, non-authoritative (`authority: none`) list of the claims touching a change
+  scope (`impact-scan:v1`, lane's `ImpactScanSnapshot`). One file per scope
+  (`explanations/EXP-<sha256(scope)[:16]>.json`); re-running `explain` overwrites it.
+- When `explanations/` exists, `validate` (and therefore `generate`) re-builds every
+  explanation from its stored scope + `generated_at` and the current corpus, and rejects
+  stale, hand-edited, renamed, symlinked or malformed files. See `docs/schema.md`,
+  "Explanations (authority: none)".
+
+### Changed
+- `validate` (and `generate`) now rejects any topic / observation / gap / id-registry
+  string value or key containing `EXP-<16 hex>` or `explanations/`: authoritative
+  records must never reference an explanation. This applies even when no
+  `explanations/` directory exists. Corpora that contain neither string are unaffected,
+  and `validate` / `generate` output for them is unchanged.
+
 ## 0.2.0
 
 First-use experience. Nothing about corpus validation itself changed -- `validate`,
