@@ -23,10 +23,21 @@ from .corpus import (
     counts_by,
     find_repo_commit_mismatches,
     load_corpus,
+    load_yaml,
     verify_content_digests_against_commit,
     yaml_shape_guard,
 )
 from .errors import CorpusError
+from .explain import (
+    EXPLANATIONS_DIR,
+    build_explanation,
+    check_no_explanation_refs,
+    explanation_id_for,
+    load_scope_file,
+    reject_unless_plain,
+    serialize_explanation,
+    validate_explanations,
+)
 from .gitio import BlobDigestCache, resolve_write_path
 from .render_md import render_markdown, render_overview_md, update_readme_counts_table
 from .schema import is_full_git_sha, is_valid_iso8601_utc, sha256_hex
@@ -81,10 +92,17 @@ class ValidationResult:
         self.warnings = warnings
 
 
-def validate(corpus_dir: Path, repo_commit: str, repo_root: Path) -> ValidationResult:
+def validate(
+    corpus_dir: Path, repo_commit: str, repo_root: Path, check_explanations: bool = True
+) -> ValidationResult:
     """Run every corpus check (load + repo-commit consistency + git blob
     hashing) without writing any output. Raises CorpusError on the first
     fatal problem; returns non-fatal worktree-drift warnings otherwise.
+
+    With check_explanations (the default), an existing explanations/
+    directory is validated too. `explain` passes False: it must be able to
+    regenerate an explanation that went stale, so it checks only the
+    authoritative records.
     """
 
     if not is_full_git_sha(repo_commit):
@@ -92,6 +110,9 @@ def validate(corpus_dir: Path, repo_commit: str, repo_root: Path) -> ValidationR
 
     corpus = load_corpus(corpus_dir)
     observations = corpus.observations
+    registry_path = corpus_dir / "id-registry.yaml"
+    with yaml_shape_guard(registry_path):
+        check_no_explanation_refs(corpus, load_yaml(registry_path), corpus_dir)
 
     mismatches = find_repo_commit_mismatches(observations, repo_commit)
     if mismatches:
@@ -103,6 +124,8 @@ def validate(corpus_dir: Path, repo_commit: str, repo_root: Path) -> ValidationR
 
     blob_cache = BlobDigestCache(repo_root)
     drift_warnings = verify_content_digests_against_commit(observations, repo_commit, repo_root, blob_cache)
+    if check_explanations:
+        validate_explanations(corpus_dir, corpus, repo_commit, __version__)
     return ValidationResult(corpus=corpus, warnings=corpus.ref_warnings + drift_warnings)
 
 
@@ -213,3 +236,40 @@ def generate(
     )
 
     return GenerateResult(claims=claims, topics=topics, manifest=manifest, warnings=result.warnings)
+
+
+def explain(
+    corpus_dir: Path, scope_file: Path, repo_commit: str, generated_at: str, repo_root: Path
+) -> tuple[Path, str]:
+    """Validate the authoritative records only, then write (or leave
+    unchanged) explanations/<explanation_id>.json for the given scope.
+    Returns the written path and one of created / unchanged / regenerated.
+    """
+
+    if not is_valid_iso8601_utc(generated_at):
+        raise CorpusError(
+            "--generated-at must be a UTC-offset ISO 8601 datetime "
+            f"(e.g. 2026-08-09T10:30:00Z), got {generated_at!r}"
+        )
+    snapshot = load_scope_file(scope_file)
+    corpus = validate(corpus_dir, repo_commit, repo_root, check_explanations=False).corpus
+
+    relative = f"{EXPLANATIONS_DIR}/{explanation_id_for(snapshot)}.json"
+    exp_dir = corpus_dir / EXPLANATIONS_DIR
+    target = corpus_dir / relative
+    if os.path.lexists(exp_dir):
+        reject_unless_plain(exp_dir, want_dir=True)
+    if os.path.lexists(target):
+        reject_unless_plain(target, want_dir=False)
+
+    text = serialize_explanation(build_explanation(corpus, snapshot, repo_commit, generated_at, __version__))
+    resolve_write_path(corpus_dir, EXPLANATIONS_DIR).mkdir(exist_ok=True)
+    path = resolve_write_path(corpus_dir, relative)
+    if not path.exists():
+        status = "created"
+    elif path.read_text(encoding="utf-8") == text:
+        return path, "unchanged"
+    else:
+        status = "regenerated"
+    path.write_text(text, encoding="utf-8")
+    return path, status

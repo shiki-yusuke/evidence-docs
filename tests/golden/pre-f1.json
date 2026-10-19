@@ -1,0 +1,59 @@
+{
+  "demo": {
+    "generate": {
+      "exit": 0,
+      "stderr": "generated 1 observations across 1 topics\ncorpus_digest=d31146071f9fc249df8246e86978b1fadf74d2cb45035e6e87b7c68258abf6ba\n",
+      "stdout": ""
+    },
+    "outputs": {
+      "bundle/claims.jsonl": "ecef30fdca3f42841129917e50fd875c2f5df4f2bad22d89f1d1026e251d337d",
+      "bundle/conflicts.jsonl": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "bundle/evidence.jsonl": "6a1538cc5c809705bc88ed7957db5830752b12757a926db714cd3be2d9b70bcd",
+      "bundle/relations.jsonl": "45e03898d4651ccbff83728745387cf341584629b9c94d909180aece861b20f3",
+      "site/index.md": "20f08f8f0ea2d7cd26f1b3358a7c98c52d400c3c2422033d277e1af0b3e5f8ac"
+    },
+    "validate": {
+      "exit": 0,
+      "stderr": "ok: 1 observations across 1 topics validated\n",
+      "stdout": ""
+    }
+  },
+  "init-scaffold": {
+    "generate": {
+      "exit": 0,
+      "stderr": "generated 0 observations across 0 topics\ncorpus_digest=476de0c10db8ff949768177519400e1e756dba22d248f37c01c385df8576e25e\n",
+      "stdout": ""
+    },
+    "outputs": {
+      "bundle/claims.jsonl": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "bundle/conflicts.jsonl": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "bundle/evidence.jsonl": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "bundle/relations.jsonl": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "site/index.md": "b424398869d0986e71f31f0fb97f918088d012f9ec7cd7658095de8111d9244e"
+    },
+    "validate": {
+      "exit": 0,
+      "stderr": "ok: 0 observations across 0 topics validated\n",
+      "stdout": ""
+    }
+  },
+  "mini-domain": {
+    "generate": {
+      "exit": 0,
+      "stderr": "generated 8 observations across 3 topics\ncorpus_digest=ebb720d9b2a48aeb171de7933fa1d3af8b648bd5a52ecef4109167b6604923b5\n",
+      "stdout": ""
+    },
+    "outputs": {
+      "bundle/claims.jsonl": "6fdf77b233a831341a1b2fe160a856542279805cc04accd81652c33aca025e86",
+      "bundle/conflicts.jsonl": "a4ae01fa753d6fe1f06baa6a185c1fedf9fe7d2530b7cd67ca135f5462b01cec",
+      "bundle/evidence.jsonl": "a1b8a4b17452851420f0212b17991c1bc09ccc29a654fc2ba08277ef4a1132a5",
+      "bundle/relations.jsonl": "99f847a73e20f3b2180e69b4b73b333a41a2dbf81df1698ec43213ee194a153f",
+      "site/index.md": "7e8416aedb8f3579b2fc78220ab17b5894d4dd2c54ff7a4c70213dc648ede3c9"
+    },
+    "validate": {
+      "exit": 0,
+      "stderr": "ok: 8 observations across 3 topics validated\n",
+      "stdout": ""
+    }
+  }
+}

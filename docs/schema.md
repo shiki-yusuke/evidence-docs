@@ -124,3 +124,87 @@ Observations are grouped one-file-per-topic (not one-file-per-observation).
 This is a diff-review tradeoff, not a correctness requirement: at larger
 corpus sizes, splitting to one-file-per-observation may read better in
 review tooling. `evidence-docs` does not enforce either layout.
+
+## Explanations (authority: none)
+
+`evidence-docs explain <dir> --scope-file <json> --repo-commit <sha> --generated-at <iso>`
+writes `explanations/<explanation_id>.json` (directly under the corpus
+directory). An explanation is a list of the known claims relevant to one
+change scope, derived mechanically from the corpus. It has no authority:
+**the corpus always wins.** No LLM is involved.
+
+- **Input** is an `impact-scan:v1` snapshot (lane's `ImpactScanSnapshot`):
+  `scan_version` (non-empty string), `repo_commit` (40 hex), `digest`,
+  `candidate_paths` (unique POSIX-relative paths, order kept),
+  `candidate_layers` (unique strings), optional `open_items`. No other keys.
+  `digest` must equal lane's `computeSnapshotDigest`:
+  `sha256(JSON.stringify({candidate_paths, candidate_layers}))`, so editing
+  `candidate_paths` without updating the digest is rejected.
+- **Selection** is exact string equality between a candidate path and an
+  observation's `affected_paths` or a repo-internal (`source` / `test` /
+  `spec`) provenance `uri`. No prefix or glob matching; `review_memory`
+  uris never match.
+- **One file per scope**: `explanation_id = "EXP-" + sha256(canonical_json(snapshot))[:16]`.
+  Re-running `explain` for the same scope overwrites the same file, so a
+  stale explanation never piles up next to its replacement.
+- `sources` lists each selected observation with its `revision_digest`.
+  `revision_digest` excludes `provenance[].observed_at`, so merely
+  re-confirming a fact on a later date does not make an explanation stale;
+  any other change to a selected observation does.
+- `commit_mismatch` is true when the scope's `repo_commit` differs from
+  `--repo-commit`. It is recorded (and stated on the first lines of
+  `body.text`), not rejected: the claims describe the corpus commit, not the
+  scanned one.
+- `generated_at` is a self-declared, informational value; `validate` checks
+  only its format. Elapsed-time measurements should come from git history.
+
+`explain` validates only the authoritative records (topics, observations,
+gaps, id-registry, plus rule 4 below) and never reads `explanations/`, so
+it can always regenerate an explanation that went stale.
+
+### Validation rules
+
+When `explanations/` exists, `validate` and `generate` apply rules 1-3.
+Rule 4 always applies.
+
+1. **Shape.** `explanations/` must be a real directory containing only
+   regular files named `EXP-<16 hex>.json`: no symlinks (file or directory),
+   subdirectories or other names. Each file must be a JSON object with
+   exactly the top-level keys `schema_version`, `authority`,
+   `explanation_id`, `scope`, `corpus_commit`, `commit_mismatch`, `sources`,
+   `generator`, `generated_at`, `body`. `explain` refuses to write through a
+   symlinked `explanations/` or target file, using the same check.
+2. **Inputs and name.** Only the inputs are read back from a stored file:
+   `scope.snapshot` (checked exactly like `--scope-file`, including the
+   digest) and `generated_at` (format only). The file name and
+   `explanation_id` must both equal the id derived from the snapshot; a valid
+   explanation copied under another valid name is rejected.
+3. **Full reconstruction.** The validator re-runs the generator on those
+   inputs with the current corpus, the current `--repo-commit` and the
+   current evidence-docs version, and compares the entire file. No stored
+   value is trusted on its own. If `sources` differ, the explanation is
+   **stale** (an observation changed, disappeared, or now matches); otherwise
+   it **does not match the generator output** (hand-edited `body`,
+   `authority` other than `none`, another `generator.version`, ...), and the
+   message names the first differing key. Regenerate either way.
+4. **No references from the corpus.** No string value or key anywhere in a
+   topic, observation, gap or `id-registry.yaml` may contain
+   `EXP-<16 hex>` or `explanations/`. This includes provenance `uri`s, so an
+   explanation can never be cited as evidence. This rule is new in this
+   version and runs even when `explanations/` does not exist; a corpus
+   containing neither string is unaffected, and every other rule is
+   unchanged.
+5. **Isolation.** `generate` (`bundle/`, `site/`) and `context` never read
+   `explanations/`; their output is identical with or without it.
+6. **What this does not guarantee.** Rule 4 stops *references*. Copying an
+   explanation's text into an observation `statement` by hand cannot be
+   detected by string checks; it falls under the existing trust boundary
+   (statements are trusted input, see the top of this document). Such an
+   observation still needs its own repo-blob provenance with a verified
+   `content_digest`, and an explanation cannot serve as that provenance
+   (rule 4), so a copied claim must be re-grounded in the authoritative
+   sources to pass `validate`. The "no promotion" guarantee stops there.
+   The check runs first over the raw text of every authoritative YAML file
+   (`topics/*.yaml`, `observations/*.yaml`, `gaps.yaml`, `id-registry.yaml`), so
+   wrapper keys, keys the loader drops, and comments are covered too; the parsed
+   records are then scanned again to report a key path.

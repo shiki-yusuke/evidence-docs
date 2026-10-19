@@ -92,8 +92,30 @@ corpus's validity or on `generate`/`context` output.
 | `init <dir>` | scaffold `topics/`, `observations/`, `id-registry.yaml`, `gaps.yaml`, `README.md`, `EXAMPLE.md` (a worked topic + observation to copy, and the enum reference for every fixed-value field); `validate` passes immediately on the scaffold as-is (0 observations) |
 | `validate <dir> --repo-commit <sha> [--repo-root <path>]` | full corpus validation, no output written (CI-friendly exit 0/1) |
 | `generate <dir> --generated-at <iso> --repo-commit <sha> [--repo-root <path>]` | validate, then deterministically write `site/index.md` + `bundle/*` |
+| `explain <dir> --scope-file <json> --repo-commit <sha> --generated-at <iso> [--repo-root <path>]` | validate the authoritative records, then write `explanations/EXP-<id>.json`: a non-authoritative (`authority: none`) list of the claims touching a change scope; see below |
 | `context <dir> --query <json\|path>` | select claims from `bundle/` for a query (`seeds.paths` / `seeds.topic_ids`, optional `token_budget`); v0 retrieval, see `docs/schema.md` |
 | `demo` | build a throwaway example corpus, `validate` it, then break it three ways and `validate` again -- no arguments, nothing persists |
+
+### Explanations (`explain`)
+
+`explain` turns a change scope (a lane `ImpactScanSnapshot`, `impact-scan:v1`)
+into `explanations/EXP-<id>.json`: the observations whose `affected_paths` or
+repo-internal provenance `uri` exactly match one of the scope's
+`candidate_paths`, plus the paths nothing covers. It is generated without any
+LLM, carries `authority: none`, and is never the source of truth: once the
+corpus changes, `validate` reports it as stale until you re-run `explain`
+(which overwrites the same file). Hand edits are rejected, and topics /
+observations / gaps / id-registry may not reference an explanation. `bundle/`,
+`site/` and `context` never read `explanations/`.
+
+```bash
+evidence-docs explain docs/claims \
+  --scope-file impact-scan.json \
+  --repo-commit "$(git rev-parse HEAD)" \
+  --generated-at 2026-08-09T10:30:00Z
+# stdout: docs/claims/explanations/EXP-<16 hex>.json
+# stderr: created | unchanged | regenerated
+```
 
 `--repo-root` defaults to the corpus directory itself; a relative
 `--repo-root` is resolved against the corpus directory, not your shell's
