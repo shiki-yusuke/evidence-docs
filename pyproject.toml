@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "evidence-docs"
-version = "0.2.0"
+dynamic = ["version"]
 description = "Deterministic, verifiable claim corpora for AI-assisted codebase documentation."
 readme = "README.md"
 requires-python = ">=3.9"
@@ -41,3 +41,6 @@ include = ["evidence_docs*"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+
+[tool.setuptools.dynamic]
+version = { attr = "evidence_docs.__version__" }
