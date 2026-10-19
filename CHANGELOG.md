@@ -3,7 +3,7 @@
 All notable changes to `evidence-docs`. This project is pre-1.0; the corpus schema
 and CLI surface may still change between minor versions.
 
-## Unreleased
+## 0.3.0 (2026-10-19)
 
 ### Added
 - `evidence-docs explain` and the `explanations/` namespace: a deterministic,
@@ -21,6 +21,11 @@ and CLI surface may still change between minor versions.
   records must never reference an explanation. This applies even when no
   `explanations/` directory exists. Corpora that contain neither string are unaffected,
   and `validate` / `generate` output for them is unchanged.
+
+### Fixed
+- `evidence-docs --version` reported `0.1.0` on 0.2.0: the package version now has one
+  source (`evidence_docs.__version__`, read by `pyproject.toml` as a dynamic field). The
+  same string is what `explain` writes into `generator.version`.
 
 ## 0.2.0
 
